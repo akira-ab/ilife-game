@@ -110,9 +110,9 @@
 const TUNING = {
   // 1ミリ秒あたりの移動量（px/ms）→ 1.0 なら毎秒 約1000px
   SPEED_MIN: 0.05,      // 最低速度 例: 0.30〜1.50 の範囲で調整
-  SPEED_MAX: 0.15,      // 最高速度
+  SPEED_MAX: 0.2,      // 最高速度
   // 難易度ごとの倍率（全体に掛け算）
-  SPEED_MULT: { easy:0.06, normal:0.8, hard:0.10, insane:0.11 },
+  SPEED_MULT: { easy:0.06, normal:0.08, hard:0.10, insane:0.15 },
 
   // ジャンプ（正解時）の演出
   JUMP_DURATION_MS: 600, // ジャンプの合計時間（ミリ秒）
@@ -506,6 +506,7 @@ class Sprite{
   </script>
 </body>
 </html>
+
 
 
 
