@@ -1,0 +1,507 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>iLife 全員発見ゲーム</title>
+<style>
+  :root { --w:600px; --h:400px; --ui-gap:8px; --px-font:14px; }
+  *{box-sizing:border-box} body{margin:0;font-family:system-ui,-apple-system,Segoe UI,Roboto,'Noto Sans JP',sans-serif;background:#111;color:#eee;display:flex;flex-direction:column;align-items:center;gap:8px}
+  #topbar{width:var(--w);display:flex;justify-content:space-between;align-items:center;margin-top:10px}
+  #target{display:flex;align-items:center;gap:8px;background:#222;padding:6px 10px;border-radius:8px;border:1px solid #333}
+  #target img{width:48px;height:48px;image-rendering:pixelated;border-radius:4px;background:#0002}
+  #target .name{font-weight:700}
+  .pocketwatch{position:relative;width:92px;height:92px}
+  .pocketwatch .ring{position:absolute;top:-10px;left:50%;transform:translateX(-50%);width:20px;height:20px;border:3px solid #aaa;border-radius:50%}
+  .pocketwatch .face{position:absolute;inset:0;border-radius:50%;border:4px solid #aaa;background:#111;display:flex;flex-direction:column;justify-content:center;align-items:center}
+  #timeText{font-size:20px;line-height:1}
+  #diffText{font-size:11px;color:#ccc;margin-top:2px}
+  #gameWrap{position:relative;width:var(--w);height:var(--h);border:2px solid #333;border-radius:10px;background:#0a0a0a;overflow:hidden}
+  canvas{display:block;width:100%;height:100%;image-rendering:pixelated;background:repeating-linear-gradient(45deg,#0c0c0c 0,#0c0c0c 6px,#0f0f0f 6px,#0f0f0f 12px)}
+  #message{width:var(--w);min-height:34px;text-align:center;padding:6px 10px;background:#1a1a1a;border-radius:8px;border:1px solid #333}
+  #tagline{width:var(--w);text-align:center;color:#ddd;opacity:.9;margin-bottom:8px}
+  .overlay{position:absolute;inset:0;background:#0008;display:flex;flex-direction:column;justify-content:center;align-items:center;gap:12px}
+  #menu,#result{position:absolute;inset:0;display:none}
+  .card{background:#1a1a1a;border:1px solid #333;border-radius:12px;padding:16px;width:min(92%,420px);text-align:center}
+  .btns{display:flex;flex-wrap:wrap;gap:8px;justify-content:center}
+  button{background:#2a2a2a;border:1px solid #444;color:#eee;padding:10px 14px;border-radius:8px;cursor:pointer}
+  button:hover{filter:brightness(1.1)}
+  .small{font-size:12px;color:#bbb}
+  /* occluder look */
+  .legend{font-size:12px;color:#bbb}
+  @media (max-width:680px){ :root{ --w:96vw; --h:64vw; } #timeText{font-size:18px}}
+</style>
+</head>
+<body data-metrics-url=""data-bg="assets/bg.jpg">
+  <div id="topbar">
+    <div id="target">
+      <img id="targetImg" alt="target"/>
+      <div>
+        <div class="small">対象メンバー</div>
+        <div class="name" id="targetName">—</div>
+      </div>
+    </div>
+    <div class="pocketwatch" aria-label="タイマー">
+      <div class="ring"></div>
+      <div class="face">
+        <div id="timeText">60</div>
+        <div id="diffText">—</div>
+      </div>
+    </div>
+  </div>
+
+  <div id="gameWrap">
+    <canvas id="game" width="600" height="400"></canvas>
+
+    <!-- 難易度メニュー -->
+    <div id="menu" class="overlay">
+      <div class="card">
+        <h2>難易度を選択</h2>
+        <div class="btns">
+          <button data-diff="easy">簡単</button>
+          <button data-diff="normal">普通</button>
+          <button data-diff="hard">難しい</button>
+          <button data-diff="insane">激ムズ</button>
+        </div>
+        <p class="legend">画像は <code>assets/characters/</code> の64×64 PNGを使用。<br/>無いメンバーは色ブロックで代用表示します。</p>
+        <p class="legend">BGM：<code>assets/bgm.mp3</code> があれば再生（任意）。</p>
+      </div>
+    </div>
+
+    <!-- 結果 -->
+    <div id="result" class="overlay">
+      <div class="card">
+        <h2 id="resultTitle">結果</h2>
+        <p id="resultDesc"></p>
+        <div class="btns">
+          <button id="restartBtn">もう一度</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div id="message">ゲーム準備完了。難易度を選んでください。</div>
+  <div id="tagline">隠れたメンバーを探せ！</div>
+
+  <!-- 任意BGM（あれば再生） -->
+  <audio id="bgm" src="assets/bgm.mp3" preload="auto" loop></audio>
+
+  <!-- ★メンバー定義（ここを書き換えるだけで画像と名前を差し替え可能） -->
+  <script id="ilife-manifest" type="application/json">
+  {
+    "members": [
+      { "name": "心花りり", "file": "assets/characters/心花りり.png" },
+      { "name": "あいす", "file": "assets/characters/あいす.png" },
+      { "name": "福丸うさ", "file": "assets/characters/福丸うさ.png" },
+      { "name": "若葉のあ", "file": "assets/characters/若葉のあ.png" },
+      { "name": "那蘭のどか", "file": "assets/characters/那蘭のどか.png" },
+      { "name": "空詩かれん", "file": "assets/characters/空詩かれん.png" },
+      { "name": "小熊まむ", "file": "assets/characters/小熊まむ.png" },
+      { "name": "虹羽みに", "file": "assets/characters/虹羽みに.png" },
+      { "name": "純嶺みき", "file": "assets/characters/純嶺みき.png" },
+      { "name": "こるね", "file": "assets/characters/こるね.png" }
+    ]
+  }
+  </script>
+
+  <script>
+  (()=>{'use strict';
+// ====== 調整用パラメータ（ここだけ数値を変えればOK） ======
+const TUNING = {
+  // 1ミリ秒あたりの移動量（px/ms）→ 1.0 なら毎秒 約1000px
+  SPEED_MIN: 0.40,      // 最低速度 例: 0.30〜1.50 の範囲で調整
+  SPEED_MAX: 1.10,      // 最高速度
+  // 難易度ごとの倍率（全体に掛け算）
+  SPEED_MULT: { easy:1.00, normal:1.10, hard:1.20, insane:1.35 },
+
+  // ジャンプ（正解時）の演出
+  JUMP_DURATION_MS: 600, // ジャンプの合計時間（ミリ秒）
+  JUMP_HEIGHT: 12        // ジャンプの高さ（px）
+};
+    // ====== 基本設定 ======
+    const CANVAS_W=600, CANVAS_H=400;
+    const INITIAL_TIME=60; // 総ゲーム時間（秒）
+    const MAX_SPRITES_ON_FIELD=10; // 同時表示するキャラ数
+    const STATE={IDLE:0,RUN:1,JUMP:2,REMOVED:3};
+const DIFFS = {
+  easy:   { label:'簡単',   dup:false, disguise:false, hide:false, speedMult:TUNING.SPEED_MULT.easy   },
+  normal: { label:'普通',   dup:true,  disguise:false, hide:false, speedMult:TUNING.SPEED_MULT.normal },
+  hard:   { label:'難しい', dup:true,  disguise:true,  hide:false, speedMult:TUNING.SPEED_MULT.hard   },
+  insane: { label:'激ムズ', dup:true,  disguise:true,  hide:true,  speedMult:TUNING.SPEED_MULT.insane}
+};
+
+
+    // ====== 便利関数 ======
+    const rand=(a,b)=>a+Math.random()*(b-a);
+    const choice=a=>a[Math.floor(Math.random()*a.length)];
+    const clamp=(v,min,max)=>Math.max(min,Math.min(max,v));
+
+    // ====== 描画準備 ======
+    const canvas=document.getElementById('game');
+    const ctx=canvas.getContext('2d');
+    ctx.imageSmoothingEnabled=false;
+
+    // ====== UI参照 ======
+    const menu=document.getElementById('menu');
+    const result=document.getElementById('result');
+    const restartBtn=document.getElementById('restartBtn');
+    const message=document.getElementById('message');
+    const timeText=document.getElementById('timeText');
+    const diffText=document.getElementById('diffText');
+    const targetImg=document.getElementById('targetImg');
+    const targetNameEl=document.getElementById('targetName');
+    const bgm=document.getElementById('bgm');
+// ====== 背景画像（任意） ======
+const bgPath = document.body.getAttribute('data-bg') || '';
+let bgImg = null;
+function preloadBg(){
+  return new Promise(res=>{
+    if(!bgPath){ res(); return; }
+    const img = new Image();
+    img.onload = ()=>{ bgImg = img; res(); };
+    img.onerror = ()=>{ res(); };
+    img.src = bgPath;
+  });
+}
+function drawBg(){
+  if(!bgImg) return;
+  const iw = bgImg.naturalWidth || bgImg.width;
+  const ih = bgImg.naturalHeight || bgImg.height;
+  // cover（全面を埋め、余分ははみ出し）
+  const scale = Math.max(canvas.width/iw, canvas.height/ih);
+  const dw = iw*scale, dh = ih*scale;
+  const dx = (canvas.width - dw)/2, dy = (canvas.height - dh)/2;
+  ctx.save();
+  ctx.imageSmoothingEnabled = true; // 背景は滑らかに
+  ctx.drawImage(bgImg, dx, dy, dw, dh);
+  ctx.restore(); // スプライト描画はピクセル風のまま
+}
+
+    const metricsUrl=document.body.getAttribute('data-metrics-url')||'';
+
+    // ====== メンバー読み込み ======
+    function loadManifest(){
+      try{
+        const j=document.getElementById('ilife-manifest').textContent;
+        const data=JSON.parse(j);
+        if(!data.members || !Array.isArray(data.members)) throw new Error('members missing');
+        return data.members;
+      }catch(e){
+        // フォールバック10人
+        return Array.from({length:10},(_,i)=>({name:`Member${i+1}`,file:`assets/characters/member${i+1}.png`}));
+      }
+    }
+    const MEMBERS=loadManifest();
+
+    // 画像プリロード（失敗時はnull）
+    const imgCache=new Map();
+    function preloadAll(){
+      return Promise.all(MEMBERS.map(m=>new Promise(res=>{
+        const img=new Image();
+        img.onload=()=>{imgCache.set(m.name,img);res();};
+        img.onerror=()=>{imgCache.set(m.name,null);res();};
+        img.src=m.file;
+      })));
+    }
+
+    // ====== サウンド（WebAudio で簡易効果音） ======
+    const AC=window.AudioContext||window.webkitAudioContext;
+    const audioCtx = AC ? new AC() : null;
+    function beep(freq=440,ms=140,type='square',gain=0.06){
+      if(!audioCtx) return;
+      const o=audioCtx.createOscillator(), g=audioCtx.createGain();
+      o.type=type; o.frequency.value=freq;
+      g.gain.value=gain;
+      o.connect(g); g.connect(audioCtx.destination);
+      o.start(); o.stop(audioCtx.currentTime+ms/1000);
+    }
+    const sfx={
+      ok:()=>{beep(880,120,'square',0.07); setTimeout(()=>beep(1320,120,'square',0.06),110);},
+      ng:()=>{beep(220,200,'square',0.07);},
+      tick:()=>{beep(660,40,'square',0.03);},
+      timeup:()=>{beep(180,300,'sawtooth',0.09); setTimeout(()=>beep(140,300,'sawtooth',0.09),260);},
+      clear:()=>{beep(660,120,'square',0.06); setTimeout(()=>beep(880,140,'square',0.06),120); setTimeout(()=>beep(1320,200,'square',0.06),280);}
+    };
+
+    // ====== ゲーム状態 ======
+    let diff=DIFFS.easy;
+    let timeLeft=INITIAL_TIME;
+    let state='menu'; // 'menu'|'play'|'over'|'clear'
+    let roundTargets=[]; // 残りのターゲット名
+    let currentTarget=null;
+    let sprites=[]; // フィールド上のキャラ
+    let occluders=[]; // 隠しオブジェクト
+    let lastTick=performance.now();
+
+    function postMetric(event){
+      if(!metricsUrl || !navigator.sendBeacon) return;
+      try{ navigator.sendBeacon(metricsUrl, JSON.stringify({event,ts:Date.now()})); }catch(e){}
+    }
+
+    // ====== スプライト ======
+class Sprite{
+  constructor(name){
+    this.name = name;
+    this.w = 64; this.h = 64;
+    this.x = rand(10, CANVAS_W - this.w - 10);
+    this.y = rand(20, CANVAS_H - this.h - 20);
+
+    // 速度：TUNING と難易度倍率を反映
+    const base = rand(TUNING.SPEED_MIN, TUNING.SPEED_MAX) * (diff.speedMult || 1);
+    this.vx = base * (Math.random()<.5 ? -1 : 1);
+    this.vy = base * (Math.random()<.5 ? -1 : 1);
+
+    this.state = STATE.IDLE;
+    this.jumpT = 0;
+    this.jumpDur = TUNING.JUMP_DURATION_MS;
+
+    this.disguise = { hat:false, glasses:false };
+    this.hidden = false; // 激ムズで部分的に隠す用
+  }
+  rect(){ return {x:this.x,y:this.y,w:this.w,h:this.h}; }
+  contains(px,py){ return px>=this.x && px<=this.x+this.w && py>=this.y && py<=this.y+this.h; }
+
+  setRunAway(px,py){
+    this.state = STATE.RUN;
+    const toRight = (this.x + this.w/2) < CANVAS_W/2;
+    this.vx = toRight ? -3.2 - Math.random()*1.2 : 3.2 + Math.random()*1.2;
+    this.vy = (py < this.y ? -1:1) * (1 + Math.random()*1.5);
+  }
+
+  setJump(){
+    this.state = STATE.JUMP;
+    this.jumpT = 0;
+    this.jumpDur = TUNING.JUMP_DURATION_MS;
+  }
+
+  update(dt){
+    if(this.state===STATE.RUN){
+      this.x += this.vx*dt; this.y += this.vy*dt;
+      if(this.x<-80||this.x>CANVAS_W+80||this.y<-80||this.y>CANVAS_H+80) this.state=STATE.REMOVED;
+      return;
+    }
+    if(this.state===STATE.JUMP){
+      this.jumpT += dt;
+      // ジャンプ中も少し移動
+      this.x += this.vx*dt*0.6; this.y += this.vy*dt*0.6;
+      if(this.jumpT >= this.jumpDur){ this.state = STATE.IDLE; }
+    }else{
+      this.x += this.vx*dt; this.y += this.vy*dt;
+    }
+    // 反射（外に出ないように）
+    if(this.x<2){this.x=2; this.vx*=-1;}
+    if(this.x+this.w>CANVAS_W-2){this.x=CANVAS_W-this.w-2; this.vx*=-1;}
+    if(this.y<2){this.y=2; this.vy*=-1;}
+    if(this.y+this.h>CANVAS_H-2){this.y=CANVAS_H-this.h-2; this.vy*=-1;}
+  }
+
+  draw(ctx){
+    // ジャンプの縦オフセット（0→上がる→0）
+    let yOff = 0;
+    if(this.state===STATE.JUMP){
+      const p = clamp(this.jumpT / this.jumpDur, 0, 1);
+      const ease = Math.sin(p * Math.PI); // 0→1→0
+      yOff = -TUNING.JUMP_HEIGHT * ease;
+    }
+
+    const x = Math.round(this.x), y = Math.round(this.y + yOff);
+    const img = imgCache.get(this.name);
+    if(img){
+      ctx.drawImage(img, x, y, this.w, this.h);
+    }else{
+      // 画像なしプレースホルダ
+      ctx.fillStyle='#2b8'; ctx.fillRect(x,y,this.w,this.h);
+      ctx.fillStyle='#012'; ctx.fillRect(x+2,y+2,this.w-4,this.h-4);
+      ctx.fillStyle='#7ff'; ctx.font='bold 12px monospace';
+      ctx.fillText(this.name.slice(0,2), x+8, y+36);
+    }
+    // 変装（帽子・サングラス）
+    if(this.disguise.hat){
+      ctx.fillStyle='#333'; ctx.fillRect(x+6,y+6,this.w-12,6); // つば
+      ctx.fillStyle='#666'; ctx.fillRect(x+14,y-2,this.w-28,10); // 帽体
+    }
+    if(this.disguise.glasses){
+      ctx.fillStyle='#000';
+      ctx.fillRect(x+14,y+26,14,10);
+      ctx.fillRect(x+36,y+26,14,10);
+      ctx.fillRect(x+28,y+30,8,2);
+    }
+  }
+}
+
+    // ====== Occluder（隠しオブジェクト） ======
+    function makeOccluders(){
+      occluders=[];
+      if(!diff.hide) return;
+      const n=2+Math.floor(Math.random()*2); // 2-3個
+      for(let i=0;i<n;i++){
+        const w=rand(90,140), h=rand(40,70);
+        const x=rand(10, CANVAS_W-w-10), y=rand(140, CANVAS_H-h-10);
+        occluders.push({x,y,w,h,color:'#163',accent:'#0b4'});
+      }
+    }
+    function drawOccluders(){
+      for(const o of occluders){
+        ctx.fillStyle=o.color; ctx.fillRect(o.x,o.y,o.w,o.h);
+        ctx.strokeStyle=o.accent; ctx.lineWidth=2;
+        for(let k=0;k<6;k++){ ctx.beginPath(); ctx.moveTo(o.x+6, o.y+6+k*10); ctx.lineTo(o.x+o.w-6, o.y+4+k*10); ctx.stroke(); }
+      }
+    }
+
+    // ====== ラウンド構築 ======
+    function setupRound(){
+      sprites=[];
+      makeOccluders();
+      // 新しいターゲット（未発見から1人）
+      currentTarget=roundTargets[0];
+      // ベース：全メンバーからMAX_SPRITES_ON_FIELDになるまで追加
+      const pool=[...MEMBERS.map(m=>m.name)];
+      // 普通以上は重複を許す
+      while(sprites.length<MAX_SPRITES_ON_FIELD){
+        const name = diff.dup ? choice(pool) : pool.splice(Math.floor(Math.random()*pool.length),1)[0];
+        if(!name) break;
+        sprites.push(new Sprite(name));
+      }
+      // ターゲットが必ず1体はいるように補正
+      if(!sprites.some(s=>s.name===currentTarget)){
+        const i=Math.floor(Math.random()*sprites.length);
+        sprites[i]=new Sprite(currentTarget);
+      }
+      // 難しい以上：一部に変装
+      if(diff.disguise){
+        for(const s of sprites){
+          if(Math.random()<0.35){ s.disguise.hat=true; }
+          if(Math.random()<0.35){ s.disguise.glasses=true; }
+        }
+      }
+      // 激ムズ：一部を隠す
+      if(diff.hide){
+        const candidates = sprites.filter(()=>Math.random()<0.4);
+        for(const s of candidates){ s.hidden=true; }
+      }
+      // UI更新
+      const img=imgCache.get(currentTarget);
+      if(img){ targetImg.src=img.src; }else{ targetImg.removeAttribute('src'); targetImg.style.background='#0002'; }
+      targetNameEl.textContent=currentTarget;
+      message.textContent=`「${currentTarget}」を探してください！`;
+    }
+
+    // ====== 難易度選択と開始 ======
+    function startGame(diffKey){
+      diff = DIFFS[diffKey]||DIFFS.easy;
+      diffText.textContent=diff.label;
+      state='play';
+      timeLeft=INITIAL_TIME;
+      roundTargets=[...MEMBERS.map(m=>m.name)]; // 全員
+      shuffle(roundTargets);
+      setupRound();
+      menu.style.display='none';
+      result.style.display='none';
+      postMetric('start');
+      // BGM（ユーザー操作後に解禁）
+      try{ bgm.volume=0.25; bgm.play().catch(()=>{}); if(audioCtx) audioCtx.resume(); }catch(e){}
+    }
+
+    // ====== シャッフル ======
+    function shuffle(a){ for(let i=a.length-1;i>0;i--){ const j=Math.floor(Math.random()*(i+1)); [a[i],a[j]]=[a[j],a[i]]; } }
+
+    // ====== 入力（PC/スマホ） ======
+    canvas.addEventListener('pointerdown', ev=>{
+      if(state!=='play') return;
+      const rect=canvas.getBoundingClientRect();
+      const scaleX=canvas.width/rect.width, scaleY=canvas.height/rect.height;
+      const x=(ev.clientX-rect.left)*scaleX, y=(ev.clientY-rect.top)*scaleY;
+      // 上から（描画順）の逆で判定
+      for(let i=sprites.length-1;i>=0;i--){
+        const s=sprites[i];
+        if(s.state===STATE.REMOVED) continue;
+        if(s.contains(x,y)){
+          if(s.name===currentTarget){
+            s.setJump(); sfx.ok(); message.textContent=`正解！「${currentTarget}」発見！`;
+            // 次ラウンドへ（少し待つ）
+            setTimeout(()=>{
+              roundTargets.shift(); // 見つけた人を除外
+              if(roundTargets.length===0){ onClear(); }
+              else { setupRound(); }
+            }, TUNING.JUMP_DURATION_MS);
+          }else{
+            s.setRunAway(x,y); sfx.ng(); message.textContent=`不正解！「${s.name}」でした。`;
+          }
+          return;
+        }
+      }
+      // 背景クリック
+    });
+
+    // ====== ループ ======
+    function loop(now){
+      const dt = Math.min(40, now-lastTick); lastTick=now;
+      if(state==='play'){
+        // 残り時間
+        timeLeft -= dt/1000;
+        const t=Math.max(0, Math.ceil(timeLeft));
+        timeText.textContent = t;
+        if(t<=10 && (Math.floor(timeLeft*10)%10===0)) sfx.tick();
+        if(timeLeft<=0){ onGameOver(); }
+
+        // 更新
+        for(const s of sprites){ if(s.state!==STATE.REMOVED) s.update(dt); }
+        sprites = sprites.filter(s=>s.state!==STATE.REMOVED);
+
+        // 描画
+        ctx.clearRect(0,0,canvas.width,canvas.height);
+	drawBg(); // ★ 追加：背景
+        for(const s of sprites){ s.draw(ctx); }
+        if(diff.hide){
+          // 隠す矩形を「前面」に描く（部分的に隠れる）
+          drawOccluders();
+        }
+      }else{
+        // メニューや結果表示中は背景だけ軽く更新
+        ctx.clearRect(0,0,canvas.width,canvas.height);
+      }
+      requestAnimationFrame(loop);
+    }
+
+    function onGameOver(){
+      state='over';
+      sfx.timeup();
+      try{ bgm.pause(); }catch(e){}
+      showResult('時間切れ！','残念…もう一度挑戦しましょう。');
+      postMetric('game_over');
+    }
+    function onClear(){
+      state='clear';
+      sfx.clear();
+      try{ bgm.pause(); }catch(e){}
+      showResult('クリア！','全員発見です。おめでとうございます！');
+      postMetric('clear');
+    }
+    function showResult(title,desc){
+      document.getElementById('resultTitle').textContent=title;
+      document.getElementById('resultDesc').textContent=desc;
+      result.style.display='flex';
+    }
+
+    // メニューのボタン
+    menu.style.display='flex';
+    menu.addEventListener('click', (e)=>{
+      const b=e.target.closest('button[data-diff]'); if(!b) return;
+      startGame(b.getAttribute('data-diff'));
+    });
+    restartBtn.addEventListener('click', ()=>{
+      menu.style.display='flex'; result.style.display='none';
+      message.textContent='難易度を選んでください。';
+      timeText.textContent=INITIAL_TIME; diffText.textContent='—';
+      state='menu';
+    });
+
+    // 起動
+    preloadAll([preloadAll(), preloadBg()]).then(()=>{
+      message.textContent='画像の準備ができました。難易度を選択してください。';
+      requestAnimationFrame(ts=>{ lastTick=ts; loop(ts); });
+    });
+  })();
+  </script>
+</body>
+</html>
