@@ -109,10 +109,10 @@
 // ====== 調整用パラメータ（ここだけ数値を変えればOK） ======
 const TUNING = {
   // 1ミリ秒あたりの移動量（px/ms）→ 1.0 なら毎秒 約1000px
-  SPEED_MIN: 0.40,      // 最低速度 例: 0.30〜1.50 の範囲で調整
-  SPEED_MAX: 1.10,      // 最高速度
+  SPEED_MIN: 0.25,      // 最低速度 例: 0.30〜1.50 の範囲で調整
+  SPEED_MAX: 0.60,      // 最高速度
   // 難易度ごとの倍率（全体に掛け算）
-  SPEED_MULT: { easy:1.00, normal:1.10, hard:1.20, insane:1.35 },
+  SPEED_MULT: { easy:0.90, normal:1.10, hard:1.10, insane:1.28 },
 
   // ジャンプ（正解時）の演出
   JUMP_DURATION_MS: 600, // ジャンプの合計時間（ミリ秒）
@@ -262,11 +262,12 @@ class Sprite{
   contains(px,py){ return px>=this.x && px<=this.x+this.w && py>=this.y && py<=this.y+this.h; }
 
   setRunAway(px,py){
-    this.state = STATE.RUN;
-    const toRight = (this.x + this.w/2) < CANVAS_W/2;
-    this.vx = toRight ? -3.2 - Math.random()*1.2 : 3.2 + Math.random()*1.2;
-    this.vy = (py < this.y ? -1:1) * (1 + Math.random()*1.5);
-  }
+  this.state = STATE.RUN;
+  const toRight = (this.x + this.w/2) < CANVAS_W/2;
+  // 元: 3.2 ± 1.2 相当 → 少し遅く
+  this.vx = toRight ? -2.2 - Math.random()*0.8 : 2.2 + Math.random()*0.8;
+  this.vy = (py < this.y ? -1:1) * (0.8 + Math.random()*1.0);
+}
 
   setJump(){
     this.state = STATE.JUMP;
@@ -505,3 +506,4 @@ class Sprite{
   </script>
 </body>
 </html>
+
