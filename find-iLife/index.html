@@ -30,6 +30,91 @@
   /* occluder look */
   .legend{font-size:12px;color:#bbb}
   @media (max-width:680px){ :root{ --w:96vw; --h:64vw; } #timeText{font-size:18px}}
+/* ===== タイトル画面（Title Screen） ===== */
+:root{
+  --pink-lite:#fdede4;       /* 薄いピンク（背景・ロゴ指定） */
+  --pink-border:#f6cad6;     /* 薄いピンクの枠線 */
+  --logo-blue:#a9ceec;       /* ロゴの水色 */
+  --blue:#274a78;            /* 見出し・ボタン文字/枠の濃いブルー */
+}
+
+/* タイトルのドット背景（オーバーレイ #menu の背景に適用） */
+.overlay.title-screen{
+  /* 薄いピンク地 */
+  background: var(--pink-lite);
+  /* 細かいドット模様（2pxの点を6px間隔で並べる） */
+  background-image:
+    radial-gradient(#f2bccc 0.8px, transparent 0.8px),
+    radial-gradient(#f2bccc 0.8px, transparent 0.8px);
+  background-position: 0 0, 3px 3px;
+  background-size: 6px 6px;
+}
+
+/* タイトルカードのレイアウト */
+.title-wrap{
+  position: relative;
+  display: flex; flex-direction: column; align-items: center; gap: 20px;
+  width: min(92%, 720px);
+  margin: 16px auto;
+}
+
+/* 中央のロゴ（SVG）を“背景的”に配置 */
+.title-logo{
+  position: absolute; inset: -30px 0 auto 0;
+  display: flex; justify-content: center; pointer-events:none;
+  opacity: 0.25; /* 背景として薄く見せる */
+}
+
+/* タイトル文字：Helvetica＋上下グラデーション（濃→淡）／影なし */
+.game-title{
+  font-family: Helvetica, Arial, "Hiragino Kaku Gothic ProN", "Yu Gothic", Meiryo, sans-serif;
+  font-weight: 700;
+  font-size: clamp(28px, 5vw, 48px);
+  margin: 0; padding-top: 32px;
+  background: linear-gradient(to bottom, #f6b7cc 0%, var(--pink-lite) 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent; /* 影・装飾は付けず、グラデのみ */
+}
+
+/* 見出し「難易度をえらぶ」：白背景＋薄ピンク枠＋角丸 */
+.menu-heading{
+  font-family: Helvetica, Arial, sans-serif;
+  color: var(--blue);
+  background: #fff;
+  border: 2px solid var(--pink-border);
+  border-radius: 12px;
+  padding: 10px 14px;
+  font-weight: 700;
+  letter-spacing: .02em;
+}
+
+/* 難易度ボタン：横並び、白地＋濃紺文字&枠、角丸 */
+.btn-row{
+  display:flex; flex-wrap:wrap; gap:10px; justify-content:center;
+}
+.btn-diff{
+  font-family: Helvetica, Arial, sans-serif;
+  background:#fff; color:var(--blue);
+  border:2px solid var(--blue);
+  border-radius:12px;
+  padding:10px 16px;
+  cursor:pointer; user-select:none;
+  transition: background .15s ease, color .15s ease, transform .02s ease;
+}
+.btn-diff:hover{ background:var(--logo-blue); color:#fff; }
+.btn-diff:active{ background:var(--blue); color:#fff; transform:translateY(1px); }
+
+/* タイトルカードの枠（中身コンテンツをまとめる） */
+.title-card{
+  background: transparent; /* 背景はドットを活かす */
+  border: none;
+  text-align:center;
+  width: 100%;
+}
+
+/* 既存の .card はメニュー時に暗い箱だったので、タイトルでは未使用 */
+
 </style>
 </head>
 <body data-metrics-url=""data-bg="assets/bg.jpg">
@@ -53,20 +138,50 @@
   <div id="gameWrap">
     <canvas id="game" width="600" height="400"></canvas>
 
-    <!-- 難易度メニュー -->
-    <div id="menu" class="overlay">
-      <div class="card">
-        <h2>難易度を選択</h2>
-        <div class="btns">
-          <button data-diff="easy">簡単</button>
-          <button data-diff="normal">普通</button>
-          <button data-diff="hard">難しい</button>
-          <button data-diff="insane">激ムズ</button>
-        </div>
-        <p class="legend">画像は <code>assets/characters/</code> の64×64 PNGを使用。<br/>無いメンバーは色ブロックで代用表示します。</p>
-        <p class="legend">BGM：<code>assets/bgm.mp3</code> があれば再生（任意）。</p>
-      </div>
+<!-- タイトル画面（Title Screen） -->
+<div id="menu" class="overlay title-screen" role="dialog" aria-label="タイトル画面">
+  <div class="title-wrap">
+    <!-- 背景ロゴ（薄く） -->
+    <div class="title-logo" aria-hidden="true">
+      <!-- シンプルなSVGロゴ：中央リボン＋両脇ペンライト／指定色を反映 -->
+      <svg width="560" height="200" viewBox="0 0 560 200" xmlns="http://www.w3.org/2000/svg">
+        <!-- 左ペンライト（青） -->
+        <g transform="translate(60,90) rotate(-18)">
+          <rect x="-8" y="-40" width="16" height="80" rx="6" fill="#a9ceec"/>
+          <rect x="-10" y="40" width="20" height="14" rx="4" fill="#274a78"/>
+          <text x="0" y="-8" font-family="Helvetica, Arial, sans-serif" font-size="14" text-anchor="middle" fill="#ffffff" transform="rotate(-90)">iLiFE!</text>
+        </g>
+        <!-- 右ペンライト（ピンク） -->
+        <g transform="translate(500,90) rotate(18)">
+          <rect x="-8" y="-40" width="16" height="80" rx="6" fill="#fdede4" stroke="#f2bccc"/>
+          <rect x="-10" y="40" width="20" height="14" rx="4" fill="#274a78"/>
+          <text x="0" y="-8" font-family="Helvetica, Arial, sans-serif" font-size="14" text-anchor="middle" fill="#274a78" transform="rotate(-90)">iLiFE!</text>
+        </g>
+        <!-- 中央リボン（薄ピンク） -->
+        <g transform="translate(280,100)">
+          <rect x="-180" y="-22" width="360" height="44" rx="10" fill="#fdede4" stroke="#f2bccc"/>
+          <!-- 三角の端 -->
+          <polygon points="-200,-10 -180,0 -200,10" fill="#fdede4" stroke="#f2bccc"/>
+          <polygon points="200,-10 180,0 200,10" fill="#fdede4" stroke="#f2bccc"/>
+        </g>
+      </svg>
     </div>
+
+    <!-- タイトル文字（グラデーションのみ／影なし） -->
+    <h1 class="game-title">iLife全員発見ゲーム</h1>
+
+    <!-- 見出し -->
+    <div class="menu-heading">難易度をえらぶ</div>
+
+    <!-- 難易度ボタン -->
+    <div class="btn-row" aria-label="難易度選択">
+      <button class="btn-diff" data-diff="easy">かんたん</button>
+      <button class="btn-diff" data-diff="normal">ふつう</button>
+      <button class="btn-diff" data-diff="hard">むずかしい</button>
+      <button class="btn-diff" data-diff="insane">げきむず</button>
+    </div>
+  </div>
+</div>
 
     <!-- 結果 -->
     <div id="result" class="overlay">
@@ -506,6 +621,7 @@ class Sprite{
   </script>
 </body>
 </html>
+
 
 
 
